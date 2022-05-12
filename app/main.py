@@ -19,7 +19,7 @@ async def create_user(name: str, fullname: str):
 
 
 @app.get("/user/all")
-async def root():
+async def all_users():
     users = []
     query = "select * from demo.dbo.tbl_user_info"
     cursor.execute(query)
@@ -29,7 +29,7 @@ async def root():
     return users
 
 
-@app.get("/user/{username}")
+@app.put("/user/{username}")
 def update_user(username: str, new_fullname: str):
     query = f"update demo.dbo.tbl_user_info set fullname = '{new_fullname}' where username = '{username}'"
     cursor.execute(query)
@@ -39,10 +39,12 @@ def update_user(username: str, new_fullname: str):
 
 @app.delete("/user/")
 def delete_user(username: str):
+    client = base.Client(('localhost', 11211))
+    client.delete(username)
     query = f"delete from demo.dbo.tbl_user_info where username = '{username}'"
     cursor.execute(query)
     cxnn.commit()
-    return {"message": "{} has been deleted".format(username)}
+    return {"message": f"{username} has been deleted"}
 
 
 @app.get("/users/{username}")
