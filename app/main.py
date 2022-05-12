@@ -1,6 +1,8 @@
-
 from fastapi import FastAPI
 from .db_connection import cursor, cxnn
+
+from pymemcache.client import base
+import json
 
 app = FastAPI()
 #
@@ -8,16 +10,61 @@ cursor = cursor
 cxnn = cxnn
 
 
-@app.get("/")
-async def root():
-    query = "insert into demo.dbo.tbl_user_info (username, fullname) values('hardikkk','hardlink')"
-    # query = "select * from demo.dbo.tbl_user_info"
+@app.post("/user")
+async def create_user(name: str, fullname: str):
+    query = f"insert into demo.dbo.tbl_user_info (username, fullname) values('{name}','{fullname}')"
     cursor.execute(query)
     cxnn.commit()
-    # for row in data:
-    #     print("Id: ", row[0])
-    #     print("Name: ", row[1])
-    #     print("fullname: ", row[2])
+    return {"message": "{} has been added to the database".format(name)}
 
-    return {"message": "Hello World"}
 
+@app.get("/user/all")
+async def root():
+    users = []
+    query = "select * from demo.dbo.tbl_user_info"
+    cursor.execute(query)
+    data = cursor.fetchall()
+    for row in data:
+        users.append({"id": row[0], "name": row[1], "fullname": row[2]})
+    return users
+
+
+@app.get("/user/{username}")
+def update_user(username: str, new_fullname: str):
+    query = f"update demo.dbo.tbl_user_info set fullname = '{new_fullname}' where username = '{username}'"
+    cursor.execute(query)
+    cxnn.commit()
+    return {"message": "{} has been updated".format(username)}
+
+
+@app.delete("/user/")
+def delete_user(username: str):
+    query = f"delete from demo.dbo.tbl_user_info where username = '{username}'"
+    cursor.execute(query)
+    cxnn.commit()
+    return {"message": "{} has been deleted".format(username)}
+
+
+@app.get("/users/{username}")
+def get_user(username: str):
+    client = base.Client(('localhost', 11211))
+    data = client.get(username)
+    if data:
+        print("User found in cache")
+        s = data.decode("utf-8").replace("'", '"')
+        z = "[" + s + "]"
+        data = json.loads(z)
+        return data
+
+    else:
+        print("User not found in cache")
+        query = f"select * from demo.dbo.tbl_user_info where username = '{username}'"
+        cursor.execute(query)
+        data = cursor.fetchone()
+        if data is not None:
+            client.set(username, {"id": data[0], "name": data[1], "fullname": data[2]}, expire=7770)
+            print(type(data))
+            print(data)
+        else:
+            return {"message": "User not found"}
+    return {"id": data[0], "name": data[1], "fullname": data[2]}
