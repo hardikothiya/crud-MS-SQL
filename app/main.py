@@ -1,7 +1,7 @@
 from fastapi import FastAPI
-from .db_connection import cursor, cxnn
 
 from pymemcache.client import base
+from db_connection import cursor, cxnn
 import json
 
 app = FastAPI()
@@ -70,3 +70,5 @@ def get_user(username: str):
         else:
             return {"message": "User not found"}
     return {"id": data[0], "name": data[1], "fullname": data[2]}
+
+
